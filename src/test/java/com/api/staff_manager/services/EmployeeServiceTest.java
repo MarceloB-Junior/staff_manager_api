@@ -16,8 +16,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -99,7 +104,7 @@ class EmployeeServiceTest {
     }
 
     @Test
-    @DisplayName("Saving a employee request with non-existing department throws DepartmentNotFoundException")
+    @DisplayName("Saving an employee request with a non-existing department throws DepartmentNotFoundException")
     void givenInvalidDepartmentId_whenSave_thenThrowDepartmentNotFoundException() {
         UUID departmentId = UUID.randomUUID();
         var request = new EmployeeRequest("John Doe", "Developer", BigDecimal.valueOf(5000), departmentId);
@@ -113,5 +118,33 @@ class EmployeeServiceTest {
         verify(employeeRepository, never()).existsByNameAndDepartment(any(), any());
         verify(employeeMapper, never()).toEntity(any());
         verify(employeeRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Find all method returns a page of EmployeeViewResponse")
+    void givenPageable_whenFindAll_thenReturnsPageOfEmployeeViewResponse() {
+        Pageable pageable = PageRequest.of(0,2);
+
+        var employee = new EmployeeModel();
+        employee.setEmployeeId(UUID.randomUUID());
+        employee.setName("John Doe");
+        employee.setPosition("Developer");
+        employee.setSalary(BigDecimal.valueOf(5000));
+
+        var employeeViewResponse = new EmployeeViewResponse(employee.getEmployeeId(), employee.getName(),
+                employee.getPosition(), employee.getSalary(), UUID.randomUUID());
+
+        Page<EmployeeModel> employeePage = new PageImpl<>(List.of(employee), pageable,1);
+
+        when(employeeRepository.findAll(pageable)).thenReturn(employeePage);
+        when(employeeMapper.toViewResponse(employee)).thenReturn(employeeViewResponse);
+
+        Page<EmployeeViewResponse> result = employeeService.findAll(pageable);
+
+        assertNotNull(result);
+        assertEquals(1, result.getTotalElements());
+        assertEquals(employeeViewResponse, result.getContent().getFirst());
+        verify(employeeRepository).findAll(pageable);
+        verify(employeeMapper).toViewResponse(employee);
     }
 }

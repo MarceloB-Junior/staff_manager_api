@@ -85,7 +85,7 @@ class DepartmentServiceTest {
     }
 
     @Test
-    @DisplayName("findAll method returns a page of DepartmentViewResponse")
+    @DisplayName("Find all method returns a page of DepartmentViewResponse")
     void givenPageable_whenFindAll_thenReturnsPageOfDepartmentViewResponse(){
         Pageable pageable = PageRequest.of(0,2);
 
@@ -124,7 +124,7 @@ class DepartmentServiceTest {
     }
 
     @Test
-    @DisplayName("findById method returns DepartmentDetailsResponse when department exists")
+    @DisplayName("Find by id method returns DepartmentDetailsResponse when department exists")
     void givenExistingDepartmentId_whenFindById_thenReturnDepartmentDetailsResponse(){
         var departmentId = UUID.randomUUID();
         var timestamp = LocalDateTime.now();
@@ -157,7 +157,7 @@ class DepartmentServiceTest {
     }
 
     @Test
-    @DisplayName("findById method throws DepartmentNotFoundException when department does not exist")
+    @DisplayName("Find by id method throws DepartmentNotFoundException when department does not exist")
     void givenNonExistingDepartmentId_whenFindById_thenThrowException() {
         var departmentId = UUID.randomUUID();
         when(departmentRepository.findById(departmentId)).thenReturn(Optional.empty());
