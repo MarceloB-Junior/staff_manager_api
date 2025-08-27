@@ -1,9 +1,11 @@
 package com.api.staff_manager.services;
 
 import com.api.staff_manager.dtos.requests.EmployeeRequest;
+import com.api.staff_manager.dtos.responses.EmployeeDetailsResponse;
 import com.api.staff_manager.dtos.responses.EmployeeViewResponse;
 import com.api.staff_manager.exceptions.custom.DepartmentNotFoundException;
 import com.api.staff_manager.exceptions.custom.EmployeeExistsException;
+import com.api.staff_manager.exceptions.custom.EmployeeNotFoundException;
 import com.api.staff_manager.mappers.EmployeeMapper;
 import com.api.staff_manager.models.DepartmentModel;
 import com.api.staff_manager.models.EmployeeModel;
@@ -22,6 +24,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -146,5 +149,56 @@ class EmployeeServiceTest {
         assertEquals(employeeViewResponse, result.getContent().getFirst());
         verify(employeeRepository).findAll(pageable);
         verify(employeeMapper).toViewResponse(employee);
+    }
+
+    @Test
+    @DisplayName("Find by id method returns EmployeeDetailsResponse when employee exists")
+    void givenExistingEmployeeId_whenFindById_thenReturnEmployeeDetailsResponse() {
+        UUID employeeId = UUID.randomUUID();
+        var timestamp = LocalDateTime.now();
+
+        var department = new DepartmentModel();
+        department.setDepartmentId(UUID.randomUUID());
+
+        var employee = new EmployeeModel();
+        employee.setEmployeeId(employeeId);
+        employee.setName("John Doe");
+        employee.setPosition("Developer");
+        employee.setSalary(BigDecimal.valueOf(5000));
+        employee.setDepartment(department);
+        employee.setCreatedAt(timestamp);
+        employee.setUpdatedAt(timestamp);
+
+        var employeeDetailsResponse = new EmployeeDetailsResponse(employeeId, "John Doe", "Developer",
+                employee.getSalary(), null, department.getDepartmentId(), timestamp, timestamp);
+
+        when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
+        when(employeeMapper.toDetailsResponse(employee)).thenReturn(employeeDetailsResponse);
+
+        var response = employeeService.findById(employeeId);
+
+        assertNotNull(response);
+        assertEquals(employeeId, response.employeeId());
+        assertEquals("John Doe", response.name());
+        assertEquals("Developer", response.position());
+        assertEquals(BigDecimal.valueOf(5000), response.salary());
+        assertEquals(department.getDepartmentId(), response.departmentId());
+        assertEquals(timestamp, response.createdAt());
+        assertEquals(timestamp, response.updatedAt());
+        verify(employeeRepository, times(1)).findById(employeeId);
+        verify(employeeMapper, times(1)).toDetailsResponse(employee);
+    }
+
+    @Test
+    @DisplayName("Find by id method throws EmployeeNotFoundException when employee does not exist")
+    void givennNonExistingEmployeeId_whenFindById_thenThrowsEmployeeNotFoundException() {
+        UUID employeeId = UUID.randomUUID();
+        when(employeeRepository.findById(employeeId)).thenReturn(Optional.empty());
+
+        var exception = assertThrows(EmployeeNotFoundException.class, () -> employeeService.findById(employeeId));
+
+        assertEquals("Employee not found with id: " + employeeId, exception.getMessage());
+        verify(employeeRepository, times(1)).findById(employeeId);
+        verifyNoInteractions(employeeMapper);
     }
 }
