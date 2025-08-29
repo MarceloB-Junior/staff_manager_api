@@ -78,11 +78,11 @@ class EmployeeServiceTest {
         var actualResponse = employeeService.save(request);
 
         assertEquals(employeeResponse, actualResponse);
-        verify(departmentRepository).findById(departmentId);
-        verify(employeeRepository).existsByNameAndDepartment(request.name(), department);
-        verify(employeeMapper).toEntity(request);
-        verify(employeeRepository).save(employee);
-        verify(employeeMapper).toViewResponse(savedEmployee);
+        verify(departmentRepository, times(1)).findById(departmentId);
+        verify(employeeRepository, times(1)).existsByNameAndDepartment(request.name(), department);
+        verify(employeeMapper, times(1)).toEntity(request);
+        verify(employeeRepository, times(1)).save(employee);
+        verify(employeeMapper, times(1)).toViewResponse(savedEmployee);
     }
 
     @Test
@@ -100,8 +100,8 @@ class EmployeeServiceTest {
         var exception = assertThrows(EmployeeExistsException.class, () -> employeeService.save(request));
         assertEquals("An employee with this name already exists in the department.", exception.getMessage());
 
-        verify(departmentRepository).findById(departmentId);
-        verify(employeeRepository).existsByNameAndDepartment(request.name(), department);
+        verify(departmentRepository, times(1)).findById(departmentId);
+        verify(employeeRepository, times(1)).existsByNameAndDepartment(request.name(), department);
         verify(employeeMapper, never()).toEntity(any());
         verify(employeeRepository, never()).save(any());
     }
@@ -117,7 +117,7 @@ class EmployeeServiceTest {
         var exception = assertThrows(DepartmentNotFoundException.class, () -> employeeService.save(request));
 
         assertEquals("Department not found with id: " + departmentId, exception.getMessage());
-        verify(departmentRepository).findById(departmentId);
+        verify(departmentRepository, times(1)).findById(departmentId);
         verify(employeeRepository, never()).existsByNameAndDepartment(any(), any());
         verify(employeeMapper, never()).toEntity(any());
         verify(employeeRepository, never()).save(any());
@@ -147,8 +147,8 @@ class EmployeeServiceTest {
         assertNotNull(result);
         assertEquals(1, result.getTotalElements());
         assertEquals(employeeViewResponse, result.getContent().getFirst());
-        verify(employeeRepository).findAll(pageable);
-        verify(employeeMapper).toViewResponse(employee);
+        verify(employeeRepository, times(1)).findAll(pageable);
+        verify(employeeMapper, times(1)).toViewResponse(employee);
     }
 
     @Test
@@ -191,7 +191,7 @@ class EmployeeServiceTest {
 
     @Test
     @DisplayName("Find by id method throws EmployeeNotFoundException when employee does not exist")
-    void givennNonExistingEmployeeId_whenFindById_thenThrowsEmployeeNotFoundException() {
+    void givenNonExistingEmployeeId_whenFindById_thenThrowsEmployeeNotFoundException() {
         UUID employeeId = UUID.randomUUID();
         when(employeeRepository.findById(employeeId)).thenReturn(Optional.empty());
 
@@ -199,6 +199,161 @@ class EmployeeServiceTest {
 
         assertEquals("Employee not found with id: " + employeeId, exception.getMessage());
         verify(employeeRepository, times(1)).findById(employeeId);
+        verifyNoInteractions(employeeMapper);
+    }
+
+    @Test
+    @DisplayName("Update existing and valid employee request returns EmployeeDetailsResponse")
+    void givenExistingEmployeeAndValidRequest_whenUpdate_thenReturnUpdatedEmployeeDetailsResponse() {
+        UUID employeeId = UUID.randomUUID();
+        UUID departmentId = UUID.randomUUID();
+        var timestamp = LocalDateTime.now();
+
+        var request = new EmployeeRequest("John Doe", "Developer", BigDecimal.valueOf(5000), departmentId);
+        var department = new DepartmentModel();
+        department.setDepartmentId(departmentId);
+
+        var employee = new EmployeeModel();
+        employee.setEmployeeId(employeeId);
+        employee.setName("Old Name");
+        employee.setPosition("Tester");
+        employee.setSalary(BigDecimal.valueOf(4000));
+        employee.setDepartment(department);
+        employee.setCreatedAt(timestamp);
+        employee.setUpdatedAt(timestamp);
+
+        var response = new EmployeeDetailsResponse(employeeId, "John Doe", "Developer",
+                BigDecimal.valueOf(5000), null, departmentId, timestamp, timestamp);
+
+        when(departmentRepository.findById(departmentId)).thenReturn(Optional.of(department));
+        when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
+        /* The condition "employeeRepository.existsByNameAndDepartment(request.name(), department)
+                && !employee.getName().equals(request.name())" is being mocked here to simplify this test */
+        when(employeeRepository.existsByNameAndDepartment(request.name(), department)).thenReturn(false);
+        when(employeeRepository.save(any(EmployeeModel.class))).thenReturn(employee);
+        when(employeeMapper.toDetailsResponse(employee)).thenReturn(response);
+
+        var result = employeeService.update(request, employeeId);
+
+        assertNotNull(result);
+        assertEquals(response, result);
+        verify(employeeRepository, times(1)).save(employee);
+        verify(employeeMapper, times(1)).toDetailsResponse(employee);
+    }
+
+    @Test
+    @DisplayName("Update employee with valid different department id returns EmployeeDetailsResponse")
+    void givenDepartmentIdDifferentFromEmployeeDepartment_whenUpdate_thenEmployeeDepartmentIsUpdated() {
+        UUID employeeId = UUID.randomUUID();
+        UUID oldDepartmentId = UUID.randomUUID();
+        UUID newDepartmentId = UUID.randomUUID();
+        var timestamp = LocalDateTime.now();
+
+        var request = new EmployeeRequest("John Doe", "Developer", BigDecimal.valueOf(5000), newDepartmentId);
+
+        var oldDepartment = new DepartmentModel();
+        oldDepartment.setDepartmentId(oldDepartmentId);
+
+        var newDepartment = new DepartmentModel();
+        newDepartment.setDepartmentId(newDepartmentId);
+
+        var employee = new EmployeeModel();
+        employee.setEmployeeId(employeeId);
+        employee.setName("Old Name");
+        employee.setPosition("Tester");
+        employee.setSalary(BigDecimal.valueOf(4000));
+        employee.setDepartment(oldDepartment);
+        employee.setCreatedAt(timestamp);
+        employee.setUpdatedAt(timestamp);
+
+        var response = new EmployeeDetailsResponse(employeeId, "John Doe", "Developer",
+                BigDecimal.valueOf(5000), null, newDepartmentId, timestamp, timestamp);
+
+        when(departmentRepository.findById(newDepartmentId)).thenReturn(Optional.of(newDepartment));
+        when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
+        /* The condition "employeeRepository.existsByNameAndDepartment(request.name(), department)
+                && !employee.getName().equals(request.name())" is being mocked here to simplify this test */
+        when(employeeRepository.existsByNameAndDepartment(request.name(), newDepartment)).thenReturn(false);
+        when(employeeRepository.save(any(EmployeeModel.class))).thenReturn(employee);
+        when(employeeMapper.toDetailsResponse(employee)).thenReturn(response);
+
+        var result = employeeService.update(request, employeeId);
+
+        assertNotNull(result);
+        assertEquals(response, result);
+        assertEquals(newDepartment, employee.getDepartment());
+        verify(employeeRepository, times(1)).save(employee);
+        verify(employeeMapper, times(1)).toDetailsResponse(employee);
+    }
+
+    @Test
+    @DisplayName("Update employee with non-existent department id throws DepartmentNotFoundException")
+    void givenNonexistentDepartment_whenUpdate_thenThrowDepartmentNotFoundException() {
+        UUID employeeId = UUID.randomUUID();
+        UUID departmentId = UUID.randomUUID();
+
+        var request = new EmployeeRequest("John Doe", "Developer", BigDecimal.valueOf(5000), departmentId);
+
+        when(departmentRepository.findById(departmentId)).thenReturn(Optional.empty());
+
+        var exception = assertThrows(DepartmentNotFoundException.class, () -> employeeService.update(request, employeeId));
+
+        assertEquals("Department not found with id: " + departmentId, exception.getMessage());
+        verify(departmentRepository, times(1)).findById(departmentId);
+        verify(employeeRepository, never()).save(any());
+        verifyNoInteractions(employeeMapper);
+    }
+
+    @Test
+    @DisplayName("Update with non-existent employee id throws EmployeeNotFoundException")
+    void givenNonexistentEmployee_whenUpdate_thenThrowEmployeeNotFoundException() {
+        UUID employeeId = UUID.randomUUID();
+        UUID departmentId = UUID.randomUUID();
+
+        var request = new EmployeeRequest("John Doe", "Developer", BigDecimal.valueOf(5000), departmentId);
+        var department = new DepartmentModel();
+        department.setDepartmentId(departmentId);
+
+        when(departmentRepository.findById(departmentId)).thenReturn(Optional.of(department));
+        when(employeeRepository.findById(employeeId)).thenReturn(Optional.empty());
+
+        var exception = assertThrows(EmployeeNotFoundException.class, () -> employeeService.update(request, employeeId));
+
+        assertEquals("Employee not found with id: " + employeeId, exception.getMessage());
+        verify(departmentRepository, times(1)).findById(departmentId);
+        verify(employeeRepository, times(1)).findById(employeeId);
+        verify(employeeRepository, never()).save(any());
+        verifyNoInteractions(employeeMapper);
+    }
+
+    @Test
+    @DisplayName("Update with existing employee name in same department throws EmployeeExistsException")
+    void givenAnotherEmployeeWithSameNameInDepartment_whenUpdate_thenThrowEmployeeExistsException() {
+        UUID employeeId = UUID.randomUUID();
+        UUID departmentId = UUID.randomUUID();
+
+        var request = new EmployeeRequest("John Doe", "Developer", BigDecimal.valueOf(5000), departmentId);
+
+        var department = new DepartmentModel();
+        department.setDepartmentId(departmentId);
+
+        var employee = new EmployeeModel();
+        employee.setEmployeeId(employeeId);
+        employee.setName("Old Name");
+        employee.setDepartment(department);
+
+        when(departmentRepository.findById(departmentId)).thenReturn(Optional.of(department));
+        when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
+        /* The condition "employeeRepository.existsByNameAndDepartment(request.name(), department)
+                && !employee.getName().equals(request.name())" is being mocked here to simplify this test */
+        when(employeeRepository.existsByNameAndDepartment(request.name(), department)).thenReturn(true);
+
+        var exception = assertThrows(EmployeeExistsException.class, () -> employeeService.update(request, employeeId));
+
+        assertEquals("An employee with this name already exists in the department.", exception.getMessage());
+        verify(departmentRepository, times(1)).findById(departmentId);
+        verify(employeeRepository, times(1)).findById(employeeId);
+        verify(employeeRepository, never()).save(any());
         verifyNoInteractions(employeeMapper);
     }
 }
