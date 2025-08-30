@@ -356,4 +356,56 @@ class EmployeeServiceTest {
         verify(employeeRepository, never()).save(any());
         verifyNoInteractions(employeeMapper);
     }
+
+    @Test
+    @DisplayName("Delete employee with photo, deletes existing employee photo and the employee")
+    void givenExistingEmployeeWithPhoto_whenDelete_thenPhotoDeletedAndEmployeeDeletedSuccessfully() {
+        UUID employeeId = UUID.randomUUID();
+
+        var employee = new EmployeeModel();
+        employee.setEmployeeId(employeeId);
+        employee.setEmployeePhoto("http://localhost:8080/api/v1/employees/" + employee.getEmployeeId() + "/photo");
+
+        when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
+
+        employeeService.delete(employeeId);
+
+        verify(employeeRepository, times(1)).findById(employeeId);
+        verify(photoService, times(1)).deletePhoto(employeeId);
+        verify(employeeRepository, times(1)).delete(employee);
+    }
+
+    @Test
+    @DisplayName("Delete employee without photo, skips photo deletion and deletes employee only")
+    void givenExistingEmployeeWithoutPhoto_whenDelete_thenEmployeeDeletedSuccessfully() {
+        UUID employeeId = UUID.randomUUID();
+
+        var employee = new EmployeeModel();
+        employee.setEmployeeId(employeeId);
+        employee.setEmployeePhoto(null);
+
+        when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
+
+        employeeService.delete(employeeId);
+
+        verify(employeeRepository, times(1)).findById(employeeId);
+        verifyNoInteractions(photoService);
+        verify(employeeRepository, times(1)).delete(employee);
+    }
+
+    @Test
+    @DisplayName("Delete non-existing employee throws EmployeeNotFoundException")
+    void givenNonExistingEmployee_whenDelete_thenThrowEmployeeNotFoundException() {
+        UUID employeeId = UUID.randomUUID();
+
+        when(employeeRepository.findById(employeeId)).thenReturn(Optional.empty());
+
+        var exception = assertThrows(EmployeeNotFoundException.class, () -> employeeService.delete(employeeId));
+
+        assertEquals("Employee not found with id: " + employeeId, exception.getMessage());
+
+        verify(employeeRepository, times(1)).findById(employeeId);
+        verifyNoInteractions(photoService);
+        verify(employeeRepository, never()).delete(any());
+    }
 }
