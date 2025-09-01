@@ -67,8 +67,8 @@ class DepartmentServiceTest {
         var response = departmentService.save(request);
 
         assertEquals(departmentResponse,response);
-        verify(departmentRepository).existsByName(request.name());
-        verify(departmentRepository).save(department);
+        verify(departmentRepository, times(1)).existsByName(request.name());
+        verify(departmentRepository, times(1)).save(department);
     }
 
     @Test
@@ -80,8 +80,8 @@ class DepartmentServiceTest {
         var exception = assertThrows(DepartmentExistsException.class, () -> departmentService.save(request));
 
         assertEquals("Department already exists.", exception.getMessage());
-        verify(departmentRepository).existsByName(request.name());
-        verify(departmentRepository, times(0)).save(any());
+        verify(departmentRepository, times(1)).existsByName(request.name());
+        verify(departmentRepository, never()).save(any());
     }
 
     @Test
@@ -118,9 +118,9 @@ class DepartmentServiceTest {
         assertEquals(departmentId2, result.getContent().get(1).departmentId());
         assertEquals("Human Resources", result.getContent().get(1).name());
 
-        verify(departmentRepository).findAll(pageable);
-        verify(departmentMapper).toViewResponse(department1);
-        verify(departmentMapper).toViewResponse(department2);
+        verify(departmentRepository, times(1)).findAll(pageable);
+        verify(departmentMapper, times(1)).toViewResponse(department1);
+        verify(departmentMapper, times(1)).toViewResponse(department2);
     }
 
     @Test
@@ -152,8 +152,8 @@ class DepartmentServiceTest {
         assertEquals(expectedResponse.createdAt(), actualResponse.createdAt());
         assertEquals(expectedResponse.updatedAt(), actualResponse.updatedAt());
 
-        verify(departmentRepository).findById(departmentId);
-        verify(departmentMapper).toDetailsResponse(department);
+        verify(departmentRepository, times(1)).findById(departmentId);
+        verify(departmentMapper, times(1)).toDetailsResponse(department);
     }
 
     @Test
@@ -165,7 +165,7 @@ class DepartmentServiceTest {
         Exception exception = assertThrows(DepartmentNotFoundException.class, () -> departmentService.findById(departmentId));
 
         assertEquals("Department not found with id: " + departmentId, exception.getMessage());
-        verify(departmentRepository).findById(departmentId);
+        verify(departmentRepository, times(1)).findById(departmentId);
         verifyNoInteractions(departmentMapper);
     }
 
@@ -206,10 +206,10 @@ class DepartmentServiceTest {
         assertEquals(expectedResponse, actualResponse);
         assertEquals("Finance 2", existingDepartment.getName());
 
-        verify(departmentRepository).findById(departmentId);
-        verify(departmentRepository).existsByName(request.name());
-        verify(departmentRepository).save(existingDepartment);
-        verify(departmentMapper).toDetailsResponse(savedDepartment);
+        verify(departmentRepository, times(1)).findById(departmentId);
+        verify(departmentRepository, times(1)).existsByName(request.name());
+        verify(departmentRepository, times(1)).save(existingDepartment);
+        verify(departmentMapper, times(1)).toDetailsResponse(savedDepartment);
     }
 
     @Test
@@ -223,7 +223,7 @@ class DepartmentServiceTest {
         var exception = assertThrows(DepartmentNotFoundException.class, () -> departmentService.update(request, departmentId));
         assertEquals("Department not found with id: " + departmentId, exception.getMessage());
 
-        verify(departmentRepository).findById(departmentId);
+        verify(departmentRepository, times(1)).findById(departmentId);
         verify(departmentRepository, never()).existsByName(any());
         verify(departmentRepository, never()).save(any());
         verifyNoInteractions(departmentMapper);
@@ -247,8 +247,8 @@ class DepartmentServiceTest {
         var exception = assertThrows(DepartmentExistsException.class, () -> departmentService.update(request, departmentId));
         assertEquals("Department already exists.", exception.getMessage());
 
-        verify(departmentRepository).findById(departmentId);
-        verify(departmentRepository).existsByName(request.name());
+        verify(departmentRepository, times(1)).findById(departmentId);
+        verify(departmentRepository, times(1)).existsByName(request.name());
         verify(departmentRepository, never()).save(any());
         verifyNoInteractions(departmentMapper);
     }
@@ -275,9 +275,9 @@ class DepartmentServiceTest {
         departmentService.delete(departmentId);
         assertTrue(department.getEmployees().isEmpty());
 
-        verify(departmentRepository).delete(department);
+        verify(departmentRepository, times(1)).delete(department);
         verify(photoService, never()).deletePhoto(employee2.getEmployeeId());
-        verify(photoService).deletePhoto(employee1.getEmployeeId());
+        verify(photoService, times(1)).deletePhoto(employee1.getEmployeeId());
     }
 
     @Test
@@ -291,7 +291,7 @@ class DepartmentServiceTest {
 
         assertEquals("Department not found with id: " + departmentId, exception.getMessage());
 
-        verify(departmentRepository).findById(departmentId);
+        verify(departmentRepository, times(1)).findById(departmentId);
         verifyNoInteractions(photoService);
         verify(departmentRepository, never()).delete(any());
     }
