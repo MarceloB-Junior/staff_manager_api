@@ -1,5 +1,9 @@
 package com.api.staff_manager.services;
 
+import com.api.staff_manager.dtos.requests.UserCreationRequest;
+import com.api.staff_manager.dtos.responses.UserSummaryResponse;
+import com.api.staff_manager.enums.RoleEnum;
+import com.api.staff_manager.exceptions.custom.UserExistsException;
 import com.api.staff_manager.exceptions.custom.UserNotFoundException;
 import com.api.staff_manager.mappers.UserMapper;
 import com.api.staff_manager.models.UserModel;
@@ -15,6 +19,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -67,5 +72,56 @@ class UserServiceTest {
         assertEquals("User not found with email: " + userEmail, exception.getMessage());
 
         verify(userRepository, times(1)).findByEmail(userEmail);
+    }
+
+    @Test
+    @DisplayName("Save valid user creation request returns UserSummaryResponse")
+    void givenValidUserCreationRequest_whenSave_thenReturnsUserSummaryResponse() {
+        var request = new UserCreationRequest("John Doe", "pwd123", "john.doe@example.com");
+        when(userRepository.existsByEmail(request.email())).thenReturn(false);
+
+        var user = new UserModel();
+        when(userMapper.toEntity(request)).thenReturn(user);
+
+        var encodedPassword = "encoded.password";
+        when(passwordEncoder.encode(request.password())).thenReturn(encodedPassword);
+
+        var savedUser = new UserModel();
+        savedUser.setUserId(UUID.randomUUID());
+        savedUser.setEmail(request.email());
+        savedUser.setRole(RoleEnum.USER);
+        when(userRepository.save(user)).thenReturn(savedUser);
+
+        var summaryResponse = new UserSummaryResponse(savedUser.getUserId(), "John Doe", savedUser.getEmail());
+        when(userMapper.toSummaryResponse(savedUser)).thenReturn(summaryResponse);
+
+        var result = userService.save(request);
+
+        assertNotNull(result);
+        assertEquals(summaryResponse.userId(), savedUser.getUserId());
+        assertEquals(summaryResponse.email(), savedUser.getEmail());
+        assertEquals(encodedPassword, user.getPassword());
+        assertEquals(RoleEnum.USER, user.getRole());
+        assertEquals(summaryResponse, result);
+
+        verify(userRepository, times(1)).existsByEmail(request.email());
+        verify(userMapper, times(1)).toEntity(request);
+        verify(passwordEncoder, times(1)).encode(request.password());
+        verify(userRepository, times(1)).save(user);
+        verify(userMapper, times(1)).toSummaryResponse(savedUser);
+    }
+
+    @Test
+    @DisplayName("Saving existing user email throws UserExistsException")
+    void givenExistingUserEmail_whenSave_thenThrowsUserExistsException() {
+        var request = new UserCreationRequest("John Doe", "pwd123", "john.doe@example.com");
+        when(userRepository.existsByEmail(request.email())).thenReturn(true);
+
+        var exception = assertThrows(UserExistsException.class, () -> userService.save(request));
+
+        assertEquals("A user with the provided email address already exists.", exception.getMessage());
+
+        verify(userRepository, times(1)).existsByEmail(request.email());
+        verifyNoMoreInteractions(userRepository, userMapper, passwordEncoder);
     }
 }
