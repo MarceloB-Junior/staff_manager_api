@@ -2,6 +2,7 @@ package com.api.staff_manager.services;
 
 import com.api.staff_manager.dtos.requests.UserCreationRequest;
 import com.api.staff_manager.dtos.responses.UserSummaryResponse;
+import com.api.staff_manager.dtos.responses.UserViewResponse;
 import com.api.staff_manager.enums.RoleEnum;
 import com.api.staff_manager.exceptions.custom.UserExistsException;
 import com.api.staff_manager.exceptions.custom.UserNotFoundException;
@@ -15,9 +16,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -123,5 +129,33 @@ class UserServiceTest {
 
         verify(userRepository, times(1)).existsByEmail(request.email());
         verifyNoMoreInteractions(userRepository, userMapper, passwordEncoder);
+    }
+
+    @Test
+    @DisplayName("Find all method returns a page of UserViewResponse")
+    void givenPageable_whenFindAll_thenReturnsPageOfUserViewResponse() {
+        Pageable pageable = PageRequest.of(0, 10);
+
+        var user = new UserModel();
+        user.setUserId(UUID.randomUUID());
+        user.setName("John Doe");
+        user.setEmail("john.doe@example.com");
+        user.setRole(RoleEnum.ADMIN);
+
+        var userViewResponse = new UserViewResponse(user.getUserId(), user.getName(), user.getEmail(), user.getRole());
+
+        Page<UserModel> userPage = new PageImpl<>(List.of(user), pageable, 1);
+
+        when(userRepository.findAll(pageable)).thenReturn(userPage);
+        when(userMapper.toViewResponse(user)).thenReturn(userViewResponse);
+
+        Page<UserViewResponse> result = userService.findAll(pageable);
+
+        assertNotNull(result);
+        assertEquals(1, result.getTotalElements());
+        assertEquals(userViewResponse, result.getContent().getFirst());
+
+        verify(userRepository,times(1)).findAll(pageable);
+        verify(userMapper,times(1)).toViewResponse(user);
     }
 }
