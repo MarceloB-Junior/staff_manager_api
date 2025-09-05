@@ -1,6 +1,7 @@
 package com.api.staff_manager.services;
 
 import com.api.staff_manager.dtos.requests.UserCreationRequest;
+import com.api.staff_manager.dtos.responses.UserDetailsResponse;
 import com.api.staff_manager.dtos.responses.UserSummaryResponse;
 import com.api.staff_manager.dtos.responses.UserViewResponse;
 import com.api.staff_manager.enums.RoleEnum;
@@ -23,6 +24,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -157,5 +159,51 @@ class UserServiceTest {
 
         verify(userRepository,times(1)).findAll(pageable);
         verify(userMapper,times(1)).toViewResponse(user);
+    }
+
+    @Test
+    @DisplayName("Find by id method returns UserDetailsResponse when user exists")
+    void givenExistingUserId_whenFindById_thenReturnsUserDetailsResponse() {
+        UUID userId = UUID.randomUUID();
+
+        var user = new UserModel();
+        user.setUserId(userId);
+        user.setName("John Doe");
+        user.setEmail("john.doe@example.com");
+        user.setRole(RoleEnum.ADMIN);
+        user.setCreatedAt(LocalDateTime.now().minusDays(1));
+        user.setUpdatedAt(LocalDateTime.now());
+
+        var userDetailsResponse = new UserDetailsResponse(user.getUserId(), user.getName(), user.getEmail(),
+                user.getRole(), user.getCreatedAt(), user.getUpdatedAt());
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userMapper.toDetailsResponse(user)).thenReturn(userDetailsResponse);
+
+        var response = userService.findById(userId);
+
+        assertNotNull(response);
+        assertEquals(userId, response.userId());
+        assertEquals(user.getName(), response.name());
+        assertEquals(user.getEmail(), response.email());
+        assertEquals(RoleEnum.ADMIN, response.role());
+
+        verify(userRepository, times(1)).findById(userId);
+        verify(userMapper, times(1)).toDetailsResponse(user);
+    }
+
+    @Test
+    @DisplayName("Find by id method throws UserNotFoundException when user does not exist")
+    void givenNonExistingUserId_whenFindById_thenThrowsUserNotFoundException() {
+        UUID userId = UUID.randomUUID();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+        var exception = assertThrows(UserNotFoundException.class, () -> userService.findById(userId));
+
+        assertEquals("User not found with id: " + userId, exception.getMessage());
+
+        verify(userRepository, times(1)).findById(userId);
+        verifyNoInteractions(userMapper);
     }
 }
