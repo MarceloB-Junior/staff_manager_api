@@ -206,4 +206,85 @@ class UserServiceTest {
         verify(userRepository, times(1)).findById(userId);
         verifyNoInteractions(userMapper);
     }
+
+    @Test
+    @DisplayName("Find by email method returns UserDetailsResponse when user exists")
+    void givenExistingUserEmail_whenFindByEmail_thenReturnUserDetailsResponse() {
+        String userEmail = "john.doe@example.com";
+
+        var user = new UserModel();
+        user.setUserId(UUID.randomUUID());
+        user.setName("John Doe");
+        user.setEmail(userEmail);
+        user.setRole(RoleEnum.ADMIN);
+        user.setCreatedAt(LocalDateTime.now().minusDays(1));
+        user.setUpdatedAt(LocalDateTime.now());
+
+        var userDetailsResponse = new UserDetailsResponse(user.getUserId(), user.getName(), user.getEmail(),
+                user.getRole(), user.getCreatedAt(), user.getUpdatedAt());
+
+        when(userRepository.findByEmail(userEmail)).thenReturn(Optional.of(user));
+        when(userMapper.toDetailsResponse(user)).thenReturn(userDetailsResponse);
+
+        var response = userService.findByEmail(userEmail);
+
+        assertNotNull(response);
+        assertEquals(userEmail, response.email());
+        assertEquals(userDetailsResponse, response);
+
+        verify(userRepository, times(1)).findByEmail(userEmail);
+        verify(userMapper, times(1)).toDetailsResponse(user);
+    }
+
+    @Test
+    @DisplayName("Find by email method throws UserNotFoundException when user does not exist")
+    void givenNonExistingUserEmail_whenFindByEmail_thenThrowUserNotFoundException() {
+        String userEmail = "john.doe@example.com";
+
+        when(userRepository.findByEmail(userEmail)).thenReturn(Optional.empty());
+
+        var exception = assertThrows(UserNotFoundException.class, () -> userService.findByEmail(userEmail));
+
+        assertEquals("User not found with email: " + userEmail, exception.getMessage());
+
+        verify(userRepository, times(1)).findByEmail(userEmail);
+        verifyNoInteractions(userMapper);
+    }
+
+    @Test
+    @DisplayName("Find model by email method returns UserModel when user exists")
+    void givenExistingUserEmail_whenFindModelByEmail_thenReturnUserModel() {
+        String userEmail = "john.doe@example.com";
+
+        var user = new UserModel();
+        user.setUserId(UUID.randomUUID());
+        user.setName("John Doe");
+        user.setEmail(userEmail);
+        user.setRole(RoleEnum.ADMIN);
+        user.setCreatedAt(LocalDateTime.now().minusDays(1));
+        user.setUpdatedAt(LocalDateTime.now());
+
+        when(userRepository.findByEmail(userEmail)).thenReturn(Optional.of(user));
+
+        var userModel = userService.findModelByEmail(userEmail);
+
+        assertNotNull(userModel);
+        assertEquals(user.getEmail(), userModel.getEmail());
+
+        verify(userRepository, times(1)).findByEmail(userEmail);
+    }
+
+    @Test
+    @DisplayName("Find model by email method throws UserNotFoundException when user does not exist")
+    void givenNonExistingUserEmail_whenFindModelByEmail_thenThrowUserNotFoundException() {
+        String userEmail = "john.doe@example.com";
+
+        when(userRepository.findByEmail(userEmail)).thenReturn(Optional.empty());
+
+        var exception = assertThrows(UserNotFoundException.class, () -> userService.findByEmail(userEmail));
+
+        assertEquals("User not found with email: " + userEmail, exception.getMessage());
+
+        verify(userRepository, times(1)).findByEmail(userEmail);
+    }
 }
