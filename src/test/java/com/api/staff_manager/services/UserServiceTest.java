@@ -1,6 +1,7 @@
 package com.api.staff_manager.services;
 
 import com.api.staff_manager.dtos.requests.UserCreationRequest;
+import com.api.staff_manager.dtos.requests.UserUpdateRequest;
 import com.api.staff_manager.dtos.responses.UserDetailsResponse;
 import com.api.staff_manager.dtos.responses.UserSummaryResponse;
 import com.api.staff_manager.dtos.responses.UserViewResponse;
@@ -270,6 +271,7 @@ class UserServiceTest {
 
         assertNotNull(userModel);
         assertEquals(user.getEmail(), userModel.getEmail());
+        assertEquals(user, userModel);
 
         verify(userRepository, times(1)).findByEmail(userEmail);
     }
@@ -286,5 +288,90 @@ class UserServiceTest {
         assertEquals("User not found with email: " + userEmail, exception.getMessage());
 
         verify(userRepository, times(1)).findByEmail(userEmail);
+    }
+
+    @Test
+    @DisplayName("Update existing user and valid user update request returns UserDetailsResponse")
+    void givenExistingUserAndValidUserUpdateRequest_whenUpdate_thenReturnsUserDetailsResponse() {
+        UUID userId = UUID.randomUUID();
+
+        var request = new UserUpdateRequest("Mark Doe", "mark.doe@example.com", RoleEnum.USER);
+
+        var existingUser = new UserModel();
+        existingUser.setUserId(userId);
+        existingUser.setEmail("john.doe@example.com");
+
+        var updatedUser = new UserModel();
+        updatedUser.setUserId(userId);
+        updatedUser.setName(request.name());
+        updatedUser.setEmail(request.email());
+        updatedUser.setRole(request.role());
+        updatedUser.setCreatedAt(LocalDateTime.now().minusDays(1));
+        updatedUser.setUpdatedAt(LocalDateTime.now());
+
+        var userDetailsResponse = new UserDetailsResponse(updatedUser.getUserId(), updatedUser.getName(),updatedUser.getEmail(),
+                updatedUser.getRole(),updatedUser.getCreatedAt(),updatedUser.getUpdatedAt());
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(existingUser));
+        /* The condition "userRepository.existsByEmail(request.email()) && !user.getEmail().equals(request.email())"
+        is being mocked here to simplify this test */
+        when(userRepository.existsByEmail(request.email())).thenReturn(false);
+        when(userRepository.save(existingUser)).thenReturn(updatedUser);
+        when(userMapper.toDetailsResponse(updatedUser)).thenReturn(userDetailsResponse);
+
+        var response = userService.update(request, userId);
+
+        assertNotNull(response);
+        assertEquals(userDetailsResponse, response);
+
+        verify(userRepository, times(1)).findById(userId);
+        verify(userRepository, times(1)).existsByEmail(request.email());
+        verify(userRepository, times(1)).save(existingUser);
+        verify(userMapper, times(1)).toDetailsResponse(updatedUser);
+    }
+
+    @Test
+    @DisplayName("Update with non-existent user id throws UserNotFoundException")
+    void givenNonExistingUserId_whenUpdate_thenThrowsUserNotFoundException() {
+        UUID userId = UUID.randomUUID();
+
+        var request = new UserUpdateRequest("John Doe", "john.doe@example.com", RoleEnum.USER);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+        var exception = assertThrows(UserNotFoundException.class, () -> userService.update(request, userId));
+
+        assertEquals("User not found with id: " + userId, exception.getMessage());
+
+        verify(userRepository, times(1)).findById(userId);
+        verify(userRepository, never()).existsByEmail(anyString());
+        verify(userRepository, never()).save(any());
+        verifyNoInteractions(userMapper);
+    }
+
+    @Test
+    @DisplayName("Update existing user with email address from another user throws UserExistsException")
+    void givenExistingEmailBelongingToAnotherUser_whenUpdate_thenThrowsUserExistsException() {
+        UUID userId = UUID.randomUUID();
+
+        var request = new UserUpdateRequest("John Doe", "john.doe@example.com", RoleEnum.USER);
+
+        var existingUser = new UserModel();
+        existingUser.setUserId(userId);
+        existingUser.setEmail("mark.doe@example.com");
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(existingUser));
+        /* The condition "userRepository.existsByEmail(request.email()) && !user.getEmail().equals(request.email())"
+        is being mocked here to simplify this test */
+        when(userRepository.existsByEmail(request.email())).thenReturn(true);
+
+        var exception = assertThrows(UserExistsException.class, () -> userService.update(request, userId));
+
+        assertEquals("A user with the provided email address already exists.", exception.getMessage());
+
+        verify(userRepository, times(1)).findById(userId);
+        verify(userRepository, times(1)).existsByEmail(request.email());
+        verify(userRepository, never()).save(any());
+        verifyNoInteractions(userMapper);
     }
 }
