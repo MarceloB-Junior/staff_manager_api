@@ -374,4 +374,32 @@ class UserServiceTest {
         verify(userRepository, never()).save(any());
         verifyNoInteractions(userMapper);
     }
+
+    @Test
+    @DisplayName("Deleting an existing user with a valid id deletes the user")
+    void givenExistingUserId_whenDelete_thenUserDeletedSuccessfully() {
+        UUID userId = UUID.randomUUID();
+
+        when(userRepository.existsById(userId)).thenReturn(true);
+
+        userService.delete(userId);
+
+        verify(userRepository, times(1)).existsById(userId);
+        verify(userRepository, times(1)).deleteById(userId);
+    }
+
+    @Test
+    @DisplayName("Delete non-existing user throws UserNotFoundException")
+    void givenNonExistingUserId_whenDelete_thenThrowUserNotFoundException() {
+        UUID userId = UUID.randomUUID();
+
+        when(userRepository.existsById(userId)).thenReturn(false);
+
+        var exception = assertThrows(UserNotFoundException.class, () -> userService.delete(userId));
+
+        assertEquals("User not found with id: " + userId, exception.getMessage());
+
+        verify(userRepository, times(1)).existsById(userId);
+        verify(userRepository, never()).deleteById(any());
+    }
 }
