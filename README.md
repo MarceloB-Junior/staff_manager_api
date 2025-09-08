@@ -11,7 +11,8 @@ A Staff Manager API foi desenvolvida para ajudar o setor de Recursos Humanos (RH
 - [Como Rodar](#como-rodar)  
 - [Usuário Administrador Padrão](#usuário-administrador-padrão)  
 - [Endpoints da API](#endpoints-da-api)  
-  - [Como testar e visualizar os endpoints via Swagger](#como-testar-e-visualizar-os-endpoints-via-swagger)  
+  - [Como testar e visualizar os endpoints via Swagger](#como-testar-e-visualizar-os-endpoints-via-swagger)
+- [Testes Unitários](#testes-unitários)   
 - [Estado Atual](#estado-atual)  
 - [Contribuição](#contribuição)  
 - [Observações](#observações) 
@@ -23,7 +24,8 @@ A Staff Manager API foi desenvolvida para ajudar o setor de Recursos Humanos (RH
 - Cadastro, consulta, edição e exclusão de usuários
 - Configuração de segurança com Spring Security e filtro JWT customizado
 - Documentação via Swagger
-- [Ainda não implementados] testes unitários e de integração
+- Testes Unitários das classes DepartmentService, EmployeeService e UserService
+- [Ainda não implementados] Testes de integração
 
 ## Tecnologias
 
@@ -34,7 +36,9 @@ A Staff Manager API foi desenvolvida para ajudar o setor de Recursos Humanos (RH
 - MapStruct  
 - Auth0 Java JWT  
 - Maven  
-- SpringDoc OpenAPI/Swagger  
+- SpringDoc OpenAPI/Swagger
+- JUnit 5
+- Mockito  
 
 ## Como Rodar
 
@@ -102,9 +106,17 @@ A API possui documentação interativa gerada automaticamente via Swagger. Você
 >  ![7](https://live.staticflickr.com/65535/54704449620_4d95dbf69f_h.jpg)
   
 
+## Testes Unitários
+O projeto contém testes unitários para as principais classes de serviço, que ajudam a garantir o funcionamento correto das operações de criação, leitura, atualização e exclusão, além de validar os tratamentos de exceções.
+- **DepartmentServiceTest**: Métodos testados incluem `save`, `findAll`, `findById`, `update` e `delete`. Os testes verificam cenários de sucesso, validação de nome duplicado, tratamento de departamentos não encontrados e remoção adequada da entidade e fotos associadas. Localização: `src/test/java/com/api/staff_manager/services/DepartmentServiceTest.java`
+- **EmployeeServiceTest**: Métodos testados incluem `save`, `findAll`, `findById`, `update` e `delete`. Abrange casos de sucesso no cadastro e atualização, verificação de existência e duplicidade dentro de departamentos, além da exclusão correta de funcionários com ou sem foto. Localização: `src/test/java/com/api/staff_manager/services/EmployeeServiceTest.java`  
+- **UserServiceTest**: Métodos testados incluem `loadUserByUsername`, `save`, `findAll`, `findById`, `findByEmail`, `update` e `delete`. Os testes cobrem criação de usuários com senha codificada, autenticação, buscas por diferentes critérios, atualização com validação de email e exclusão segura. Localização: `src/test/java/com/api/staff_manager/services/UserServiceTest.java`    
+
+Cerca de 60% das classes da camada service estão cobertas por testes unitários, garantindo a robustez das operações e o correto uso das camadas de persistência e mapeamento.
+
 ## Estado Atual
 
-Este projeto está em desenvolvimento e atualmente a versão é a 0.0.1-SNAPSHOT.
+Este projeto está em desenvolvimento e atualmente a versão é a 0.0.1.
 
 ## Contribuição
 
